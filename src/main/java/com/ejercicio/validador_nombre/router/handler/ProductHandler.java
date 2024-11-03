@@ -1,6 +1,7 @@
 package com.ejercicio.validador_nombre.router.handler;
 
-import com.ejercicio.validador_nombre.model.dto.ProductDTO;
+import com.ejercicio.validador_nombre.model.dto.ProductRequest;
+import com.ejercicio.validador_nombre.model.dto.ProductResponse;
 import com.ejercicio.validador_nombre.service.ProductService;
 import com.ejercicio.validador_nombre.validator.ObjectValidator;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -20,67 +20,51 @@ public class ProductHandler {
     private final ObjectValidator objectValidator;
 
     public Mono<ServerResponse> findAll(ServerRequest request) {
-        Flux<ProductDTO> products = productService.findAll()
-                .map(ProductDTO::from);
-
         return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(products, ProductDTO.class);
+                .body(productService.findAll(), ProductResponse.class);
     }
 
     public Mono<ServerResponse> getAllAsStream(ServerRequest request) {
-        Flux<ProductDTO> products = productService.getAllAsStream()
-                .map(ProductDTO::from);
-
         return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_NDJSON)
-                .body(products, ProductDTO.class);
+                .body(productService.getAllAsStream(), ProductResponse.class);
     }
 
     public Mono<ServerResponse> getPrevious(ServerRequest request) {
-        Flux<String> previous = productService.getPrevious();
-
         return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_NDJSON)
-                .body(previous, String.class);
+                .body(productService.getPrevious(), String.class);
     }
 
     public Mono<ServerResponse> findById(ServerRequest request) {
         Long id = Long.parseLong(request.pathVariable("productId"));
-        Mono<ProductDTO> product = productService.findById(id)
-                .map(ProductDTO::from);
 
         return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(product, ProductDTO.class);
+                .body(productService.findById(id), ProductResponse.class);
     }
 
     public Mono<ServerResponse> insertOne(ServerRequest request) {
         return request
-                .bodyToMono(ProductDTO.class)
+                .bodyToMono(ProductRequest.class)
                 .doOnNext(objectValidator::validate)
-                .map(ProductDTO::toCreateEntity)
-                .flatMap(productService::insert)
-                .map(ProductDTO::from)
-                .flatMap(response ->
+                .flatMap(requestCreate ->
                         ServerResponse.status(HttpStatus.CREATED)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .body(Mono.just(response), ProductDTO.class));
+                                .body(productService.insert(requestCreate), ProductResponse.class));
 
     }
 
     public Mono<ServerResponse> updateById(ServerRequest request) {
         Long id = Long.parseLong(request.pathVariable("productId"));
         return request
-                .bodyToMono(ProductDTO.class)
+                .bodyToMono(ProductRequest.class)
                 .doOnNext(objectValidator::validate)
-                .map(dto -> dto.toUpdateEntity(id))
-                .flatMap(productService::updateById)
-                .map(ProductDTO::from)
-                .flatMap(response ->
+                .flatMap(requestUpdate ->
                         ServerResponse.ok()
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .body(Mono.just(response), ProductDTO.class));
+                                .body(productService.updateById(id, requestUpdate), ProductResponse.class));
 
     }
 

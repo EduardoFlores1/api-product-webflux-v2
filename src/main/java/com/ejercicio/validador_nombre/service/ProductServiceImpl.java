@@ -1,6 +1,9 @@
 package com.ejercicio.validador_nombre.service;
 
 import com.ejercicio.validador_nombre.exception.ServiceException;
+import com.ejercicio.validador_nombre.mapper.ProductMapper;
+import com.ejercicio.validador_nombre.model.dto.ProductRequest;
+import com.ejercicio.validador_nombre.model.dto.ProductResponse;
 import com.ejercicio.validador_nombre.model.entity.ProductEntity;
 import com.ejercicio.validador_nombre.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,13 +26,15 @@ public class ProductServiceImpl implements ProductService{
     private final Collection<String> previous = new ArrayList<>();
 
     @Override
-    public Flux<ProductEntity> findAll() {
-        return productRepository.findAll();
+    public Flux<ProductResponse> findAll() {
+        return productRepository.findAll()
+                .map(ProductMapper::entityToResponse);
     }
 
     @Override
-    public Flux<ProductEntity> getAllAsStream() {
+    public Flux<ProductResponse> getAllAsStream() {
         return productRepository.findAll()
+                .map(ProductMapper::entityToResponse)
                 .delayElements(Duration.ofSeconds(1));
     }
 
@@ -39,27 +44,29 @@ public class ProductServiceImpl implements ProductService{
     }
 
     @Override
-    public Mono<ProductEntity> findById(Long id) {
+    public Mono<ProductResponse> findById(Long id) {
         return productRepository.findById(id)
-                .switchIfEmpty(Mono.error(ServiceException.notFound(id)));
+                .switchIfEmpty(Mono.error(ServiceException.notFound(id)))
+                .map(ProductMapper::entityToResponse);
     }
 
     @Override
-    public Mono<ProductEntity> insert(ProductEntity product) {
-        if (previous.contains(product.getName())) {
+    public Mono<ProductResponse> insert(ProductRequest request) {
+        if (previous.contains(request.getName())) {
             return Mono.error(ServiceException.newInstance4XX("No puede ingresar un registro previamente eliminado"));
         }
-        return productRepository.save(product);
+        return productRepository.save(ProductMapper.requestToEntity(request))
+                .map(ProductMapper::entityToResponse);
     }
 
     @Override
-    public Mono<ProductEntity> updateById(ProductEntity product) {
-        return productRepository.findById(product.getId())
-                .switchIfEmpty(Mono.error(ServiceException.notFound(product.getId())))
+    public Mono<ProductResponse> updateById(Long id, ProductRequest request) {
+        return productRepository.findById(id)
+                .switchIfEmpty(Mono.error(ServiceException.notFound(id)))
                 .flatMap(founded -> {
-                    founded.setName(product.getName());
+                    founded.setName(request.getName());
                     return productRepository.save(founded);
-                });
+                }).map(ProductMapper::entityToResponse);
     }
 
     @Override
